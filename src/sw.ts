@@ -4,7 +4,7 @@ console.log('[SingleTab SW] script loaded');
 
 const CACHE_NAME = 'single-tab-v1';
 const STATE_KEY = 'https://single-tab/state';
-const STALE_MS = 5000;
+const STALE_MS = 2000;
 
 interface IStoredState {
   clientId: string;
@@ -16,7 +16,8 @@ const EVENTS = {
   TAKE_OVER: "take_over",
   SKIP_WAITING: "skipWaiting",
   PING: "ping",
-  AM_I_ACTIVE: "am-i-active"
+  AM_I_ACTIVE: "am-i-active",
+  PONG: "pong"
 }
 
 async function getState(): Promise<IStoredState | null> {
@@ -24,7 +25,9 @@ async function getState(): Promise<IStoredState | null> {
 
   const res = await cache.match(STATE_KEY);
   
-  if (!res) return null;
+  if (!res) {
+    return null;
+  }
   
   try {
     return (await res.json()) as IStoredState;
@@ -43,36 +46,62 @@ function isStale(state: IStoredState | null): boolean {
   return !state || Date.now() - state.lastSeen > STALE_MS;
 }
 
-self.addEventListener('message', (event: ExtendableMessageEvent) => {
+self.addEventListener('message', (event: MessageEvent) => {
   const data = event.data as { type?: string; tabId?: string };
   const type = data?.type ?? '';
 
-  console.log('[SingleTab SW] message received:', type, 'clientId=', event.source?.id);
+  console.log(data);
+
+  // event.source can be a Client, ServiceWorker, or MessagePort; only Client has 'id'
+  const clientId =
+    event.source && "id" in event.source
+      ? (event.source as unknown as Client).id
+      : "";
+
+  console.log('[SingleTab SW] message received:', type, 'clientId=', clientId);
 
   if (type === 'skipWaiting') {
     console.log('[SingleTab SW] skipWaiting');
     
-    self.skipWaiting();
+    (self as unknown as ServiceWorkerGlobalScope).skipWaiting();
     
     return;
   }
 
   const { tabId } = data ?? {};
-  const clientId = event.source?.id ?? '';
+
   const now = Date.now();
 
-  if (type === EVENTS.PING) {
-    setState({ clientId, tabId: tabId ?? '', lastSeen: now });
-    (event.source as Client).postMessage({ type: 'pong' });
-    console.log('[SingleTab SW] ping -> pong sent');
+  if (type === EVENTS.PING && tabId) {
+    // Heartbeat должен продлевать жизнь только текущему владельцу.
+    // Если стейта нет или tabId не совпадает с владельцем – игнорируем PING.
+    getState().then((state) => {
+      if (!state || state.tabId !== tabId) {
+        console.log(
+          '[SingleTab SW] ping ignored: not owner',
+          'state.tabId=',
+          state?.tabId,
+          'tabId=',
+          tabId
+        );
+        return;
+      }
+
+      setState({ ...state, clientId, lastSeen: now }).then(() => {
+        (event.source as unknown as Client).postMessage({ type: EVENTS.PONG });
+      });
+
+      console.log('[SingleTab SW] ping from owner -> pong sent, state updated');
+    });
+
     return;
   }
 
   if (type === EVENTS.TAKE_OVER) {
-    const source = event.source as Client;
-    
+    const source = event.source as unknown as Client;
+
     setState({ clientId, tabId: tabId ?? '', lastSeen: now }).then(() =>
-      self.clients.matchAll().then((allClients) => {
+      (self as unknown as ServiceWorkerGlobalScope).clients.matchAll().then((allClients: readonly Client[]) => {
         for (const client of allClients) {
           if (client.id === source.id) {
             client.postMessage({ type: EVENTS.AM_I_ACTIVE, active: true });
@@ -87,23 +116,48 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   }
 
   if (type === EVENTS.AM_I_ACTIVE) {
-    getState().then((state) => {
-      const stale = isStale(state);
-      const isSameClient = state && state.clientId === clientId;
-      const active = stale || isSameClient;
+    (async () => {
+      const state = await getState();
 
-      console.log('[SingleTab SW] am-i-active: state=', state, 'stale=', stale, 'isSameClient=', isSameClient, '-> active=', active);
-
-      if (active) {
-        setState({ clientId, tabId: tabId ?? '', lastSeen: now });
+      // Проверяем, жив ли текущий владелец по clientId.
+      let ownerAlive = false;
+      if (state && state.clientId) {
+        try {
+          const ownerClient = await (self as unknown as ServiceWorkerGlobalScope).clients.get(
+            state.clientId
+          );
+          ownerAlive = !!ownerClient;
+        } catch {
+          ownerAlive = false;
+        }
       }
 
-      (event.source as Client).postMessage({
+      const isSameTab = state && state.tabId === (tabId ?? '');
+      const noOwner = !state || !ownerAlive;
+      const active = noOwner || isSameTab;
+
+      console.log(
+        '[SingleTab SW] am-i-active: state=',
+        state,
+        'ownerAlive=',
+        ownerAlive,
+        'isSameTab=',
+        isSameTab,
+        '-> active=',
+        active
+      );
+
+      if (active) {
+        await setState({ clientId, tabId: tabId ?? '', lastSeen: Date.now() });
+      }
+
+      (event.source as unknown as Client).postMessage({
         type: EVENTS.AM_I_ACTIVE,
         active,
       });
+
       console.log('[SingleTab SW] am-i-active response sent, active=', active);
-    });
+    })();
   }
 });
 
@@ -111,7 +165,8 @@ self.addEventListener('install', () => {
   console.log('[SingleTab SW] install');
 });
 
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', (event) => {
   console.log('[SingleTab SW] activate');
-  event.waitUntil(self.clients.claim());
+
+  (event as ExtendableEvent).waitUntil((self as unknown as ServiceWorkerGlobalScope).clients.claim());
 });

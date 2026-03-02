@@ -12,7 +12,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
   private readonly options: Required<Omit<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked'>> &
     Pick<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked'>;
 
-  private readonly tabId = `${Date.now()}-${Math.random()}`;
+  private readonly tabId: string;
 
   private registration: ServiceWorkerRegistration | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -22,6 +22,27 @@ export class ServiceWorkerStrategy implements TabStrategy {
   private active: boolean = false;
 
   constructor(options: IServiceWorkerStrategyOptions = {}) {
+    // Stable tabId within one browser tab (sessionStorage is per-tab).
+    let tabId = `${Date.now()}-${Math.random()}`;
+
+    try {
+      if (typeof window !== 'undefined' && 'sessionStorage' in window) {
+        // как будто всегда будет новый id потому что сессия стор тухнет со новой вкладкой
+        const key = 'single-tab-manager-tab-id';
+
+        const existing = window.sessionStorage.getItem(key);
+        
+        if (existing) {
+          tabId = existing;
+        } else {
+          window.sessionStorage.setItem(key, tabId);
+        }
+      }
+    } catch {
+      // ignore storage errors, fallback to random tabId
+    }
+    this.tabId = tabId;
+
     this.options = {
       swPath: options.swPath ?? DEFAULT_SW_PATH,
       heartbeatInterval: options.heartbeatInterval ?? DEFAULT_HEARTBEAT_INTERVAL,
@@ -129,11 +150,13 @@ export class ServiceWorkerStrategy implements TabStrategy {
       this.addMessageListener();
 
       if (navigator.serviceWorker.controller) {
-        console.log('[SingleTab] Controller exists -> requestAmIActive + startHeartbeat');
+        console.log('[SingleTab] Controller exists -> requestAmIActive + maybe startHeartbeat');
         
         await this.requestAmIActive();
         
-        this.startHeartbeat();
+        if (this.active) {
+          this.startHeartbeat();
+        }
       } else {
         console.log('[SingleTab] No controller -> waiting for controllerchange...');
         
@@ -149,11 +172,13 @@ export class ServiceWorkerStrategy implements TabStrategy {
           );
         });
 
-        console.log('[SingleTab] After controllerchange -> requestAmIActive + startHeartbeat');
+        console.log('[SingleTab] After controllerchange -> requestAmIActive + maybe startHeartbeat');
         
         await this.requestAmIActive();
         
-        this.startHeartbeat();
+        if (this.active) {
+          this.startHeartbeat();
+        }
       }
       console.log('[SingleTab] registerAndStart done, active:', this.active);
     } catch (err) {
@@ -169,10 +194,18 @@ export class ServiceWorkerStrategy implements TabStrategy {
       const data = event.data as { type?: string; active?: boolean };
 
       if (data?.type === EVENTS.AM_I_ACTIVE) {
+        const wasActive = this.active;
         this.active = data.active === true;
       
         console.log(`[SingleTab] message from SW: ${EVENTS.AM_I_ACTIVE}, active=`, this.active);
-      
+
+        // Синхронизируем heartbeat с текущим статусом.
+        if (!wasActive && this.active) {
+          this.startHeartbeat();
+        } else if (wasActive && !this.active) {
+          this.stopHeartbeat();
+        }
+
         if (this.active) {
           this.options.onActive?.();
         } else {

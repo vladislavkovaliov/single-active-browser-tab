@@ -16,6 +16,7 @@ export class SingleTabManager {
 
   constructor(strategy: StrategyType = "sw", options?: SingleTabManagerOptions) {
     const opts: IServiceWorkerStrategyOptions = options ?? {};
+    
     this.strategies = {
       sw: new ServiceWorkerStrategy({
         onActive: opts.onActive,
@@ -24,6 +25,7 @@ export class SingleTabManager {
         heartbeatInterval: opts.heartbeatInterval,
       }),
     };
+    
     this.strategy = this.strategies[strategy]!;
   }
 
