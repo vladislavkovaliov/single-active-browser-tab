@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Single Tab Strategies</title>
+</head>
+<body>
+    <h1>Single Tab Manager Test</h1>
+    <div>
+        <h2>Strategy: <span id="strategy-type"></span></h2>
+        <p>Status: <span id="status">Not started</span></p>
+        <p>Active: <span id="active">Unknown</span></p>
+        <button id="start-btn">Start</button>
+        <button id="stop-btn">Stop</button>
+        <button id="takeover-btn">Takeover</button>
+        <button id="check-active-btn">Check Active</button>
+    </div>
+    
+    <div>
+        <h3>Switch Strategy:</h3>
+        <button id="switch-sw">Use Service Worker</button>
+        <button id="switch-broadcast">Use Broadcast</button>
+    </div>
+    
+    <div>
+        <h3>Logs:</h3>
+        <div id="logs" style="height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;"></div>
+    </div>
+
+    <script type="module">
+        import { SingleTabManager } from './src/src/core/index.ts';
+        
+        let manager = null;
+        let currentStrategy = 'broadcast'; // Start with broadcast to test it
+        
+        const strategyTypeEl = document.getElementById('strategy-type');
+        const statusEl = document.getElementById('status');
+        const activeEl = document.getElementById('active');
+        const logsEl = document.getElementById('logs');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logsEl.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logsEl.scrollTop = logsEl.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateUI() {
+            strategyTypeEl.textContent = currentStrategy;
+            if (manager) {
+                activeEl.textContent = manager.isActive() ? 'Yes' : 'No';
+            }
+        }
+        
+        function createManager() {
+            if (manager) {
+                manager.stop();
+            }
+            
+            manager = new SingleTabManager(currentStrategy, {
+                onActive: () => {
+                    log(`✅ Tab became ACTIVE (${currentStrategy})`);
+                    statusEl.textContent = 'Active';
+                    updateUI();
+                },
+                onBlocked: () => {
+                    log(`❌ Tab became BLOCKED (${currentStrategy})`);
+                    statusEl.textContent = 'Blocked';
+                    updateUI();
+                },
+                heartbeatInterval: 1000 // Faster for testing
+            });
+            
+            updateUI();
+            log(`Created ${currentStrategy} manager`);
+        }
+        
+        // Initialize
+        createManager();
+        
+        // Event listeners
+        document.getElementById('start-btn').addEventListener('click', () => {
+            if (manager) {
+                manager.start();
+                log(`Started ${currentStrategy} strategy`);
+                statusEl.textContent = 'Started';
+            }
+        });
+        
+        document.getElementById('stop-btn').addEventListener('click', () => {
+            if (manager) {
+                manager.stop();
+                log(`Stopped ${currentStrategy} strategy`);
+                statusEl.textContent = 'Stopped';
+                updateUI();
+            }
+        });
+        
+        document.getElementById('takeover-btn').addEventListener('click', () => {
+            if (manager) {
+                manager.takeover();
+                log(`Takeover requested (${currentStrategy})`);
+            }
+        });
+        
+        document.getElementById('check-active-btn').addEventListener('click', () => {
+            if (manager) {
+                const isActive = manager.isActive();
+                log(`Active status: ${isActive} (${currentStrategy})`);
+                updateUI();
+            }
+        });
+        
+        document.getElementById('switch-sw').addEventListener('click', () => {
+            currentStrategy = 'sw';
+            createManager();
+            log('Switched to Service Worker strategy');
+        });
+        
+        document.getElementById('switch-broadcast').addEventListener('click', () => {
+            currentStrategy = 'broadcast';
+            createManager();
+            log('Switched to Broadcast strategy');
+        });
+        
+        // Auto-update active status
+        setInterval(() => {
+            if (manager) {
+                updateUI();
+            }
+        }, 1000);
+        
+        log('Test page loaded. Open multiple tabs to test single tab functionality.');
+    </script>
+</body>
+</html>

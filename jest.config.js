@@ -1,7 +1,13 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
+export default {
+  preset: 'ts-jest/presets/default-esm',
+  extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'jsdom',
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.ts'],
+  globals: {
+    'ts-jest': {
+      useESM: true
+    }
+  }
 };

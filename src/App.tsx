@@ -6,9 +6,13 @@ function App() {
   const managerRef = useRef<SingleTabManager | null>(null);
 
   useEffect(() => {
-    const manager = new SingleTabManager('sw', {
-      onActive: () => setIsActive(true),
-      onBlocked: () => setIsActive(false),
+    const manager = new SingleTabManager('broadcast', {
+      onActive: () => {
+        setIsActive(true);
+      },
+      onBlocked: () => {
+        setIsActive(false)
+      },
     });
     managerRef.current = manager;
     manager.start();
@@ -17,17 +21,19 @@ function App() {
       managerRef.current = null;
     };
   }, []);
-
+  console.log({isActive})
   return (
     <main style={{ padding: '2rem', fontFamily: 'system-ui' }}>
-      <h1>Hello World</h1>
-      {isActive === null && <p>Connecting to service worker…</p>}
-      {isActive === true && <p style={{ color: 'green' }}>This tab is active (ping-pong with SW)</p>}
+      <h1>Single active browser tab (broadcast)</h1>
+      {isActive === null && <p>Connecting…</p>}
+      {isActive === true && (
+        <p style={{ color: 'green' }}>This tab is active</p>
+      )}
       {isActive === false && (
         <>
-          <p style={{ color: 'orange' }}>Another tab is active</p>
+          <p style={{ color: 'orange' }}>Another tab is already active</p>
           <button type="button" onClick={() => managerRef.current?.takeover()}>
-            Take over
+            Reload
           </button>
         </>
       )}
