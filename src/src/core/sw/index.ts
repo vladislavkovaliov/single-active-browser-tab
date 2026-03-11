@@ -1,13 +1,34 @@
 import { IServiceWorkerStrategyOptions } from './types';
 import { DEFAULT_SW_PATH, DEFAULT_HEARTBEAT_INTERVAL, EVENTS } from './constants';
 
+/**
+ * Common contract for strategies that coordinate a single active browser tab.
+ */
 export interface TabStrategy {
+  /**
+   * Initialize and start the strategy.
+   */
   start(): void;
+  /**
+   * Stop the strategy and release any resources.
+   */
   stop(): void;
+  /**
+   * Returns whether this strategy considers the current tab active.
+   */
   isActive?(): boolean;
+  /**
+   * Force this tab to become active, if the strategy supports it.
+   */
   takeover?(): void;
 }
 
+/**
+ * Service worker–based implementation of {@link TabStrategy}.
+ *
+ * Registers a service worker, coordinates active tab ownership via
+ * `postMessage`, and uses periodic heartbeats to keep the worker informed.
+ */
 export class ServiceWorkerStrategy implements TabStrategy {
   private readonly options: Required<
     Omit<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked'>
@@ -23,6 +44,15 @@ export class ServiceWorkerStrategy implements TabStrategy {
   private isStarted = false;
   private active: boolean = false;
 
+  /**
+   * Creates a new service worker strategy instance.
+   *
+   * @param options Optional configuration:
+   *  - `swPath`: Path to the service worker script.
+   *  - `heartbeatInterval`: Interval (ms) between heartbeat messages.
+   *  - `onActive`: Callback invoked when this tab becomes active.
+   *  - `onBlocked`: Callback invoked when this tab is blocked.
+   */
   constructor(options: IServiceWorkerStrategyOptions = {}) {
     // Stable tabId within one browser tab (sessionStorage is per-tab).
     let tabId = `${Date.now()}-${Math.random()}`;
@@ -53,6 +83,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     };
   }
 
+  /**
+   * Starts the strategy: registers the service worker, hooks listeners
+   * and begins heartbeats if this tab is reported as active.
+   */
   start(): void {
     console.log('[SingleTab] ServiceWorkerStrategy.start()');
 
@@ -65,6 +99,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     this.registerAndStart();
   }
 
+  /**
+   * Stops the strategy: halts heartbeats, removes listeners and clears
+   * the worker registration reference for this instance.
+   */
   stop(): void {
     if (!this.isStarted) {
       return;
@@ -78,13 +116,16 @@ export class ServiceWorkerStrategy implements TabStrategy {
     this.registration = null;
   }
 
+  /**
+   * Returns whether this tab is currently considered active by the strategy.
+   */
   isActive(): boolean {
     return this.active;
   }
 
   /**
    * Take over as the active tab. This tab becomes active; other tabs receive
-   * a message from the worker that they are no longer active (onBlocked).
+   * a message from the worker that they are no longer active (`onBlocked`).
    */
   takeover(): void {
     const controller = navigator.serviceWorker.controller;
@@ -99,6 +140,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     });
   }
 
+  /**
+   * Registers the service worker (if available) and wires up update handling,
+   * message listeners and initial active-status negotiation.
+   */
   private async registerAndStart(): Promise<void> {
     if ('serviceWorker' in navigator === false) {
       console.log('[SingleTab] No serviceWorker in navigator');
@@ -197,6 +242,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     }
   }
 
+  /**
+   * Subscribes to `message` events from the service worker and updates
+   * this tab's active state based on worker responses.
+   */
   private addMessageListener(): void {
     this.messageHandler = (event: MessageEvent) => {
       // TODO: infer from EVENTS
@@ -228,6 +277,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
     console.log('[SingleTab] Message listener added');
   }
 
+  /**
+   * Removes the message listener previously attached to the service worker.
+   */
   private removeMessageListener(): void {
     if (this.messageHandler) {
       navigator.serviceWorker.removeEventListener('message', this.messageHandler);
@@ -236,6 +288,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     }
   }
 
+  /**
+   * Asks the service worker whether this tab is active and resolves once
+   * the answer has been received and local state has been updated.
+   */
   private requestAmIActive(): Promise<void> {
     return new Promise((resolve) => {
       const controller = navigator.serviceWorker.controller;
@@ -283,6 +339,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     });
   }
 
+  /**
+   * Starts periodic heartbeat messages to the service worker while this
+   * tab is active, informing it that the tab is still alive.
+   */
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
@@ -296,6 +356,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
     }, this.options.heartbeatInterval);
   }
 
+  /**
+   * Stops sending heartbeat messages to the service worker.
+   */
   private stopHeartbeat(): void {
     if (this.heartbeatTimer !== null) {
       clearInterval(this.heartbeatTimer);

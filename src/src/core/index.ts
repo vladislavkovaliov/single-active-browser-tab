@@ -1,6 +1,5 @@
 import { ServiceWorkerStrategy, TabStrategy } from './sw';
 import { BroadcastChannelStrategy } from './broadcast';
-import type { IServiceWorkerStrategyOptions } from './sw/types';
 
 type StrategyType = 'sw' | 'broadcast';
 
@@ -18,7 +17,8 @@ export class SingleTabManager {
   private readonly strategies: Record<StrategyType, TabStrategy>;
 
   constructor(strategy: StrategyType = 'sw', options?: SingleTabManagerOptions) {
-    const opts: IServiceWorkerStrategyOptions = options ?? {};
+    const opts: SingleTabManagerOptions = options ?? {};
+
     this.strategies = {
       sw: new ServiceWorkerStrategy({
         onActive: opts.onActive,
@@ -46,7 +46,6 @@ export class SingleTabManager {
   }
 
   isActive(): boolean {
-    // console.log(this.strategy.isActive?.())
     return this.strategy.isActive?.() ?? false;
   }
 

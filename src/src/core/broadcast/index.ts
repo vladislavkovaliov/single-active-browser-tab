@@ -1,5 +1,8 @@
 import { TabStrategy } from '../sw';
 
+/**
+ * Configuration options for {@link BroadcastChannelStrategy}.
+ */
 interface IBroadcastStrategyOptions {
   heartbeatInterval?: number;
   staleTimeout?: number;
@@ -8,16 +11,35 @@ interface IBroadcastStrategyOptions {
   channelName?: string;
 }
 
+/**
+ * Shape of the state persisted in {@link localStorage} to coordinate active tab ownership.
+ */
 interface BroadcastState {
   ownerId: string;
   lastSeen: number;
 }
 
+/**
+ * Default timeout (in milliseconds) after which a stored tab heartbeat is considered stale.
+ */
 const DEFAULT_STALE_TIMEOUT = 5000;
+/**
+ * Default interval (in milliseconds) for writing heartbeat updates to storage.
+ */
 const DEFAULT_HEARTBEAT_INTERVAL = 5000;
+/**
+ * Default name of the {@link BroadcastChannel} used to propagate state changes.
+ */
 const DEFAULT_CHANNEL_NAME = 'single-tab-manager-broadcast';
+/**
+ * Storage key used to persist {@link BroadcastState} in {@link localStorage}.
+ */
 const STORAGE_KEY = 'single-tab-manager-broadcast-state';
 
+/**
+ * Tab coordination strategy that uses {@link BroadcastChannel} and {@link localStorage}
+ * to ensure only a single tab is considered "active" at a time.
+ */
 export class BroadcastChannelStrategy implements TabStrategy {
   private readonly heartbeatInterval: number;
   private readonly staleTimeout: number;
@@ -37,6 +59,16 @@ export class BroadcastChannelStrategy implements TabStrategy {
   private isOpen = false;
   private active = false;
 
+  /**
+   * Creates a new broadcast-channel-based tab coordination strategy.
+   *
+   * @param options Optional behavior overrides and lifecycle callbacks.
+   * - `heartbeatInterval`: How often to write heartbeats to storage (ms).
+   * - `staleTimeout`: How long before a heartbeat is treated as stale (ms).
+   * - `onActive`: Called when this tab becomes the active tab.
+   * - `onBlocked`: Called when this tab is blocked by another active tab.
+   * - `channelName`: Custom {@link BroadcastChannel} name to use.
+   */
   constructor(options: IBroadcastStrategyOptions = {}) {
     let tabId = `${Date.now()}-${Math.random()}`;
     let isReload = false;
@@ -81,6 +113,10 @@ export class BroadcastChannelStrategy implements TabStrategy {
     );
   }
 
+  /**
+   * Starts the strategy, wiring up storage, broadcast channel and timers.
+   * Safe to call multiple times; subsequent calls are no-ops.
+   */
   start(): void {
     if (this.isStarted) {
       return;
@@ -118,6 +154,10 @@ export class BroadcastChannelStrategy implements TabStrategy {
     this.startCheckTimer();
   }
 
+  /**
+   * Stops the strategy, removing timers, broadcast listeners and unload handlers.
+   * If this tab is currently the owner in storage, its ownership record is cleared.
+   */
   stop(): void {
     if (!this.isStarted) {
       return;
@@ -134,16 +174,23 @@ export class BroadcastChannelStrategy implements TabStrategy {
     }
   }
 
+  /**
+   * Returns whether this tab is currently recorded as the owner in storage.
+   *
+   * Note: This checks persisted state only and does not consider staleness.
+   */
   isActive(): boolean {
     const state = this.readState();
     const isOwner = state !== null && state.ownerId === this.tabId;
-    const stale = state ? this.isStateStale(state) : false;
-
     const active = isOwner;
 
     return active;
   }
 
+  /**
+   * Forces this tab to become active immediately and (re)start heartbeats.
+   * Does not perform additional ownership checks; callers should ensure this is desired.
+   */
   takeover(): void {
     this.becomeActive();
     this.startHeartbeat();
