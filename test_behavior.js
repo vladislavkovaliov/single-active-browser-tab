@@ -45,7 +45,7 @@ function runTests() {
   mockStorage.clear();
   
   // Simulate first tab
-  const { BroadcastChannelStrategy } = require('./src/src/core/broadcast/broadcast.ts');
+  const { BroadcastChannelStrategy } = require('./src/core/broadcast/broadcast.ts');
   
   console.log('✅ All key changes have been implemented:');
   console.log('   - start() method no longer auto-activates on stale state');

@@ -1,6 +1,8 @@
 import { IServiceWorkerStrategyOptions } from './types';
 import { DEFAULT_SW_PATH, DEFAULT_HEARTBEAT_INTERVAL, EVENTS } from './constants';
 
+import { getLoggerInstance } from '../logger';
+
 /**
  * Common contract for strategies that coordinate a single active browser tab.
  */
@@ -88,7 +90,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
    * and begins heartbeats if this tab is reported as active.
    */
   start(): void {
-    console.log('[SingleTab] ServiceWorkerStrategy.start()');
+    getLoggerInstance().log('[SingleTab] ServiceWorkerStrategy.start()');
 
     if (this.isStarted) {
       return;
@@ -146,7 +148,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
    */
   private async registerAndStart(): Promise<void> {
     if ('serviceWorker' in navigator === false) {
-      console.log('[SingleTab] No serviceWorker in navigator');
+      getLoggerInstance().log('[SingleTab] No serviceWorker in navigator');
 
       if (this.options.onBlocked) {
         this.options.onBlocked();
@@ -156,13 +158,13 @@ export class ServiceWorkerStrategy implements TabStrategy {
     }
 
     try {
-      console.log('[SingleTab] Registering SW:', this.options.swPath);
+      getLoggerInstance().log('[SingleTab] Registering SW:', this.options.swPath);
 
       this.registration = await navigator.serviceWorker.register(this.options.swPath, {
         scope: '/',
       });
 
-      console.log(
+      getLoggerInstance().log(
         '[SingleTab] SW registered, state:',
         this.registration.active?.state,
         this.registration.installing?.state,
@@ -170,7 +172,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
       );
 
       if (this.registration.waiting) {
-        console.log(`[SingleTab] SW waiting -> postMessage(${EVENTS.SKIP_WAITING})`);
+        getLoggerInstance().log(`[SingleTab] SW waiting -> postMessage(${EVENTS.SKIP_WAITING})`);
 
         this.registration.waiting.postMessage({ type: EVENTS.SKIP_WAITING });
       }
@@ -178,11 +180,11 @@ export class ServiceWorkerStrategy implements TabStrategy {
       this.registration.addEventListener('updatefound', () => {
         const newWorker = this.registration?.installing;
 
-        console.log('[SingleTab] updatefound, installing:', Boolean(newWorker));
+        getLoggerInstance().log('[SingleTab] updatefound, installing:', Boolean(newWorker));
 
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
-            console.log('[SingleTab] installing statechange:', newWorker.state);
+            getLoggerInstance().log('[SingleTab] installing statechange:', newWorker.state);
 
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               newWorker.postMessage({ type: EVENTS.SKIP_WAITING });
@@ -191,18 +193,18 @@ export class ServiceWorkerStrategy implements TabStrategy {
         }
       });
 
-      console.log('[SingleTab] Waiting for navigator.serviceWorker.ready...');
+      getLoggerInstance().log('[SingleTab] Waiting for navigator.serviceWorker.ready...');
 
       await navigator.serviceWorker.ready;
 
-      console.log('[SingleTab] ready. controller:', Boolean(navigator.serviceWorker.controller));
+      getLoggerInstance().log('[SingleTab] ready. controller:', Boolean(navigator.serviceWorker.controller));
 
       this.registration.update();
 
       this.addMessageListener();
 
       if (navigator.serviceWorker.controller) {
-        console.log('[SingleTab] Controller exists -> requestAmIActive + maybe startHeartbeat');
+        getLoggerInstance().log('[SingleTab] Controller exists -> requestAmIActive + maybe startHeartbeat');
 
         await this.requestAmIActive();
 
@@ -210,13 +212,13 @@ export class ServiceWorkerStrategy implements TabStrategy {
           this.startHeartbeat();
         }
       } else {
-        console.log('[SingleTab] No controller -> waiting for controllerchange...');
+        getLoggerInstance().log('[SingleTab] No controller -> waiting for controllerchange...');
 
         await new Promise<void>((resolve) => {
           navigator.serviceWorker.addEventListener(
             'controllerchange',
             () => {
-              console.log('[SingleTab] controllerchange fired');
+              getLoggerInstance().log('[SingleTab] controllerchange fired');
 
               resolve();
             },
@@ -224,7 +226,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
           );
         });
 
-        console.log(
+        getLoggerInstance().log(
           '[SingleTab] After controllerchange -> requestAmIActive + maybe startHeartbeat'
         );
 
@@ -234,9 +236,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
           this.startHeartbeat();
         }
       }
-      console.log('[SingleTab] registerAndStart done, active:', this.active);
+      getLoggerInstance().log('[SingleTab] registerAndStart done, active:', this.active);
     } catch (err) {
-      console.error('[SingleTab] registration failed', err);
+      getLoggerInstance().error('[SingleTab] registration failed', err);
 
       this.options.onBlocked?.();
     }
@@ -255,7 +257,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
         const wasActive = this.active;
         this.active = data.active === true;
 
-        console.log(`[SingleTab] message from SW: ${EVENTS.AM_I_ACTIVE}, active=`, this.active);
+        getLoggerInstance().log(`[SingleTab] message from SW: ${EVENTS.AM_I_ACTIVE}, active=`, this.active);
 
         // Синхронизируем heartbeat с текущим статусом.
         if (!wasActive && this.active) {
@@ -274,7 +276,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
 
     navigator.serviceWorker.addEventListener('message', this.messageHandler);
 
-    console.log('[SingleTab] Message listener added');
+    getLoggerInstance().log('[SingleTab] Message listener added');
   }
 
   /**
@@ -296,10 +298,10 @@ export class ServiceWorkerStrategy implements TabStrategy {
     return new Promise((resolve) => {
       const controller = navigator.serviceWorker.controller;
 
-      console.log('[SingleTab] requestAmIActive: controller=', !!controller, 'tabId=', this.tabId);
+      getLoggerInstance().log('[SingleTab] requestAmIActive: controller=', !!controller, 'tabId=', this.tabId);
 
       if (!controller) {
-        console.warn('[SingleTab] requestAmIActive: no controller, cannot send message');
+        getLoggerInstance().warn('[SingleTab] requestAmIActive: no controller, cannot send message');
 
         this.options.onBlocked?.();
 
@@ -316,7 +318,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
 
           this.active = data.active === true;
 
-          console.log('[SingleTab] requestAmIActive response: active=', this.active);
+          getLoggerInstance().log('[SingleTab] requestAmIActive response: active=', this.active);
 
           if (this.active) {
             this.options.onActive?.();
@@ -335,7 +337,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
         tabId: this.tabId,
       });
 
-      console.log(`[SingleTab] requestAmIActive: postMessage(${EVENTS.AM_I_ACTIVE}) sent`);
+      getLoggerInstance().log(`[SingleTab] requestAmIActive: postMessage(${EVENTS.AM_I_ACTIVE}) sent`);
     });
   }
 
@@ -346,7 +348,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
-    console.log('[SingleTab] startHeartbeat, interval=', this.options.heartbeatInterval);
+    getLoggerInstance().log('[SingleTab] startHeartbeat, interval=', this.options.heartbeatInterval);
 
     this.heartbeatTimer = setInterval(() => {
       navigator.serviceWorker.controller?.postMessage({

@@ -1,5 +1,8 @@
 import { TabStrategy } from '../sw';
 
+import { getLoggerInstance } from '../logger';
+
+
 /**
  * Configuration options for {@link BroadcastChannelStrategy}.
  */
@@ -80,7 +83,7 @@ export class BroadcastChannelStrategy implements TabStrategy {
         const existing = window.sessionStorage.getItem(key);
 
         if (existing) {
-          console.log('[SingleTab BC] constructor: using existing tabId from sessionStorage');
+          getLoggerInstance().log('[SingleTab BC] constructor: using existing tabId from sessionStorage');
           tabId = existing;
           isReload = true;
         } else {
@@ -101,7 +104,7 @@ export class BroadcastChannelStrategy implements TabStrategy {
     this.onBlocked = options.onBlocked;
     this.channelName = options.channelName ?? DEFAULT_CHANNEL_NAME;
 
-    console.log(
+    getLoggerInstance().log(
       '[SingleTab BC] init: tabId=',
       this.tabId,
       'heartbeatInterval=',
@@ -250,7 +253,7 @@ export class BroadcastChannelStrategy implements TabStrategy {
     }
 
     this.beforeUnloadHandler = () => {
-      console.log('[SingleTab BC] beforeunload: keep state for potential reload');
+      getLoggerInstance().log('[SingleTab BC] beforeunload: keep state for potential reload');
     };
 
     window.addEventListener('beforeunload', this.beforeUnloadHandler);

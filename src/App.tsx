@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SingleTabManager } from './src/core';
+import { SingleTabManager } from './core';
 
 function App() {
   const [isActive, setIsActive] = useState<boolean | null>(null);
