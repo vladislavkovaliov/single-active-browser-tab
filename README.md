@@ -278,8 +278,20 @@ console.log(`Tab ID: ${tabId}`);
 ### Available Scripts
 
 ```bash
-# Run tests
+# Run unit tests
 npm test
+
+# Run E2E tests with Cypress (headless)
+npm run cypress:run
+
+# Run E2E tests with Cypress (interactive UI)
+npm run cypress:open
+
+# Run E2E tests with dev server
+npm run e2e
+
+# Run E2E tests with dev server (interactive UI)
+npm run e2e:open
 
 # Run ESLint
 npm run lint
@@ -295,6 +307,30 @@ npm run format:check
 
 # Type check
 npm run typecheck
+```
+
+### E2E Testing with Cypress
+
+The project uses Cypress for end-to-end testing of both strategies:
+
+- **Passive Strategy** (`cypress/e2e/passive-strategy.cy.ts`): Tests the default behavior where a new tab becomes blocked when another active tab exists.
+
+- **Takeover Strategy** (`cypress/e2e/takeover-strategy.cy.ts`): Tests the ability to forcefully take control using the `takeover()` method.
+
+To run tests:
+
+```bash
+# Open Cypress UI (recommended for development)
+npm run cypress:open
+
+# Run all tests in headless mode
+npm run cypress:run
+
+# Run with Chrome
+npm run cypress:run:chrome
+
+# Run with Firefox
+npm run cypress:run:firefox
 ```
 
 ## Browser Support

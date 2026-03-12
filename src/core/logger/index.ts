@@ -7,7 +7,7 @@ export function getLoggerInstance() {
     return instance;
   } else {
     instance = new Logger({
-      level: process.env.LOG_LEVEL as 'error' | 'warn' | 'log',
+      level: import.meta.env.VITE_LOG_LEVEL as 'error' | 'warn' | 'log',
       transform: {
         colors: {
           log: { background: 'white', font: 'black' },
