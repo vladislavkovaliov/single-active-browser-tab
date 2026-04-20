@@ -1,0 +1,17 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: vladislavkovaliov/wi-github-actions/.github/actions/env-setup@main
+
+      - name: Test
+        run: npm run test

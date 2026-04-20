@@ -1,5 +1,16 @@
 import { Logger } from 'wi-console-logger';
 
+function resolveLogLevel(): 'error' | 'warn' | 'log' {
+  const raw =
+    typeof process !== 'undefined' && process.env
+      ? (process.env.LOG_LEVEL ?? process.env.VITE_LOG_LEVEL)
+      : undefined;
+  if (raw === 'warn' || raw === 'log' || raw === 'error') {
+    return raw;
+  }
+  return 'error';
+}
+
 let instance: Logger | undefined = undefined;
 
 export function getLoggerInstance() {
@@ -7,7 +18,7 @@ export function getLoggerInstance() {
     return instance;
   } else {
     instance = new Logger({
-      level: import.meta.env.VITE_LOG_LEVEL as 'error' | 'warn' | 'log',
+      level: resolveLogLevel(),
       transform: {
         colors: {
           log: { background: 'white', font: 'black' },

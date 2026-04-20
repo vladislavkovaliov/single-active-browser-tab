@@ -10,13 +10,20 @@ var EVENTS = {
 
 // src/core/logger/index.ts
 import { Logger } from "wi-console-logger";
+function resolveLogLevel() {
+  const raw = typeof process !== "undefined" && process.env ? process.env.LOG_LEVEL ?? process.env.VITE_LOG_LEVEL : void 0;
+  if (raw === "warn" || raw === "log" || raw === "error") {
+    return raw;
+  }
+  return "error";
+}
 var instance = void 0;
 function getLoggerInstance() {
   if (instance) {
     return instance;
   } else {
     instance = new Logger({
-      level: import.meta.env.VITE_LOG_LEVEL,
+      level: resolveLogLevel(),
       transform: {
         colors: {
           log: { background: "white", font: "black" },

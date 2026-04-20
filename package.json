@@ -8,12 +8,18 @@
     "dev": "VITE_LOG_LEVEL=error vite",
     "build": "rm -rf dist && tsup",
     "preview": "vite preview",
+    "cy:run": "cypress run --browser chrome",
+    "test:e2e": "start-server-and-test dev http://localhost:5173 cy:run",
+    "test:pw": "playwright test",
+    "test:pw:ui": "playwright test --ui",
+    "playwright:install": "playwright install chromium",
     "lint": "eslint src/**/*.{ts,tsx}",
     "lint:fix": "eslint src/**/*.{ts,tsx} --fix",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "format:check": "prettier --check src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
+    "postinstall": "playwright install chromium",
     "cz": "git-cz",
     "cm": "cz"
   },
@@ -27,7 +33,8 @@
     ".": {
       "require": "./dist/single-tab-manager.cjs",
       "import": "./dist/single-tab-manager.js"
-    }
+    },
+    "./sw.js": "./dist/assets/sw.js"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -45,16 +52,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "^5.9.3",
     "wi-console-logger": "^1.4.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
     "@vitejs/plugin-react": "^4.3.3",
@@ -68,9 +75,15 @@
     "jest-environment-jsdom": "^30.2.0",
     "lint-staged": "^16.3.3",
     "prettier": "^3.8.1",
+    "start-server-and-test": "^2.0.8",
     "ts-jest": "^29.4.6",
     "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.0",
     "vite": "^6.0.3"
+  },
+  "engines": {
+    "node": "24",
+    "npm": "11"
   }
 }

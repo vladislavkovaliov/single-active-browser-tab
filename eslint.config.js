@@ -37,6 +37,23 @@ export default tseslint.config(
     },
   },
   {
+    files: ['cypress/**/*.ts', 'cypress.config.cjs'],
+    languageOptions: {
+      globals: {
+        cy: 'readonly',
+        Cypress: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        expect: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-namespace': 'off',
+    },
+  },
+  {
     files: ['**/*.ts'],
     languageOptions: {
       globals: {

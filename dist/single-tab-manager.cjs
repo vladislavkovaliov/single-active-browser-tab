@@ -36,14 +36,20 @@ var EVENTS = {
 
 // src/core/logger/index.ts
 var import_wi_console_logger = require("wi-console-logger");
-var import_meta = {};
+function resolveLogLevel() {
+  const raw = typeof process !== "undefined" && process.env ? process.env.LOG_LEVEL ?? process.env.VITE_LOG_LEVEL : void 0;
+  if (raw === "warn" || raw === "log" || raw === "error") {
+    return raw;
+  }
+  return "error";
+}
 var instance = void 0;
 function getLoggerInstance() {
   if (instance) {
     return instance;
   } else {
     instance = new import_wi_console_logger.Logger({
-      level: import_meta.env.VITE_LOG_LEVEL,
+      level: resolveLogLevel(),
       transform: {
         colors: {
           log: { background: "white", font: "black" },
