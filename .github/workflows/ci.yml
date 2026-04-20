@@ -4,14 +4,31 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  unit:
+  ci:
+    name: Build and test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v6
+
       - uses: vladislavkovaliov/wi-github-actions/.github/actions/env-setup@main
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Unit tests
         run: npm run test
@@ -20,4 +37,14 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Playwright tests
+        id: playwright
         run: npm run test:pw
+
+      - name: Upload Playwright traces (on failure)
+        if: failure() && steps.playwright.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
