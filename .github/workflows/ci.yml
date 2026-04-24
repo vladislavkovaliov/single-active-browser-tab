@@ -66,16 +66,3 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
-
-  release:
-    name: Release
-    needs: e2e
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: vladislavkovaliov/wi-github-actions/.github/actions/env-setup@main
