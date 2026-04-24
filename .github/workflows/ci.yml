@@ -77,9 +77,3 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: vladislavkovaliov/wi-github-actions/.github/actions/env-setup@main
-
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
