@@ -19,7 +19,6 @@
     "format:check": "prettier --check src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit",
     "prepare": "husky",
-    "postinstall": "playwright install chromium",
     "cz": "git-cz",
     "cm": "cz"
   },
