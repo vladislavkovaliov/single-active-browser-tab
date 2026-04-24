@@ -23,6 +23,13 @@ jobs:
         with:
           node-version: 'lts/*'
 
+      # Install without lifecycle scripts (husky) — @semantic-release/npm does not run `build` for you.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build package (files for npm tarball)
+        run: npm run build
+
       - name: Prepare prerelease semantic
         if: github.ref != 'refs/heads/main'
         run: mv .releaserc.prerelease.yaml .releaserc.yaml
@@ -38,7 +45,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          npm_config_ignore_scripts: true
 
       - name: Do something when a new release published
         if: steps.semantic.outputs.new_release_published == 'true'

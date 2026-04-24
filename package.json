@@ -2,8 +2,10 @@
   "name": "single-active-browser-tab",
   "version": "1.8.0",
   "main": "index.js",
+  "types": "./dist/single-tab-manager.d.ts",
   "type": "module",
   "scripts": {
+    "prepublishOnly": "npm run build",
     "test": "LOG_LEVEL=error jest",
     "test:coverage": "LOG_LEVEL=error jest --coverage",
     "dev": "VITE_LOG_LEVEL=error vite",
