@@ -9,6 +9,7 @@ export interface SingleTabManagerOptions {
   swPath?: string;
   heartbeatInterval?: number;
   staleTimeout?: number;
+  logLevel?: 'error' | 'warn' | 'log';
 }
 
 export class SingleTabManager {
@@ -19,18 +20,22 @@ export class SingleTabManager {
   constructor(strategy: StrategyType = 'sw', options?: SingleTabManagerOptions) {
     const opts: SingleTabManagerOptions = options ?? {};
 
+    console.log({options});
+
     this.strategies = {
       sw: new ServiceWorkerStrategy({
         onActive: opts.onActive,
         onBlocked: opts.onBlocked,
         swPath: opts.swPath,
         heartbeatInterval: opts.heartbeatInterval,
+        logLevel: opts.logLevel,
       }),
       broadcast: new BroadcastChannelStrategy({
         onActive: opts.onActive,
         onBlocked: opts.onBlocked,
         heartbeatInterval: opts.heartbeatInterval,
         staleTimeout: opts.staleTimeout,
+        logLevel: opts.logLevel,
       }),
     };
 

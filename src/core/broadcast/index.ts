@@ -2,7 +2,6 @@ import { TabStrategy } from '../sw';
 
 import { getLoggerInstance } from '../logger';
 
-
 /**
  * Configuration options for {@link BroadcastChannelStrategy}.
  */
@@ -11,6 +10,7 @@ interface IBroadcastStrategyOptions {
   staleTimeout?: number;
   onActive?: () => void;
   onBlocked?: () => void;
+  logLevel?: 'error' | 'warn' | 'log';
   channelName?: string;
 }
 
@@ -57,6 +57,7 @@ export class BroadcastChannelStrategy implements TabStrategy {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private checkTimer: ReturnType<typeof setInterval> | null = null;
   private beforeUnloadHandler: (() => void) | null = null;
+  private logLevel: 'error' | 'warn' | 'log' | undefined = undefined;
 
   private isStarted = false;
   private isOpen = false;
@@ -70,6 +71,7 @@ export class BroadcastChannelStrategy implements TabStrategy {
    * - `staleTimeout`: How long before a heartbeat is treated as stale (ms).
    * - `onActive`: Called when this tab becomes the active tab.
    * - `onBlocked`: Called when this tab is blocked by another active tab.
+   * - `logLevel`: Log Level to log actins.
    * - `channelName`: Custom {@link BroadcastChannel} name to use.
    */
   constructor(options: IBroadcastStrategyOptions = {}) {
@@ -83,7 +85,10 @@ export class BroadcastChannelStrategy implements TabStrategy {
         const existing = window.sessionStorage.getItem(key);
 
         if (existing) {
-          getLoggerInstance().log('[SingleTab BC] constructor: using existing tabId from sessionStorage');
+          const logLevel = options.logLevel;
+          getLoggerInstance(logLevel).log(
+            '[SingleTab BC] constructor: using existing tabId from sessionStorage'
+          );
           tabId = existing;
           isReload = true;
         } else {
@@ -104,7 +109,9 @@ export class BroadcastChannelStrategy implements TabStrategy {
     this.onBlocked = options.onBlocked;
     this.channelName = options.channelName ?? DEFAULT_CHANNEL_NAME;
 
-    getLoggerInstance().log(
+    const logLevel = options.logLevel;
+
+    getLoggerInstance(logLevel).log(
       '[SingleTab BC] init: tabId=',
       this.tabId,
       'heartbeatInterval=',
@@ -253,7 +260,9 @@ export class BroadcastChannelStrategy implements TabStrategy {
     }
 
     this.beforeUnloadHandler = () => {
-      getLoggerInstance().log('[SingleTab BC] beforeunload: keep state for potential reload');
+      const logLevel = this.logLevel;
+
+      getLoggerInstance(logLevel).log('[SingleTab BC] beforeunload: keep state for potential reload');
     };
 
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
@@ -294,7 +303,6 @@ export class BroadcastChannelStrategy implements TabStrategy {
     this.checkTimer = setInterval(() => {
       const state = this.readState();
 
-
       if (state === null) {
         if (!this.isActive()) {
           this.becomeActive();
@@ -334,7 +342,6 @@ export class BroadcastChannelStrategy implements TabStrategy {
 
   private handleExternalStateChange(): void {
     const state = this.readState();
-
 
     if (state === null) {
       if (!this.isActive()) {

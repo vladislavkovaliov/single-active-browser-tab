@@ -1,9 +1,10 @@
 # Single Active Browser Tab
 
-A lightweight, framework-agnostic JavaScript library that ensures only one browser tab can be active at a time. Uses a heartbeat mechanism with `localStorage` for cross-tab communication.
+A lightweight, framework-agnostic JavaScript library that ensures only one browser tab can be active at a time. Uses two coordination strategies: Service Worker or BroadcastChannel.
 
 ## Features
 
+- ✅ **Two strategies** - Service Worker (default) or BroadcastChannel
 - ✅ **Framework-agnostic** - Works with React, Vue, Angular, or vanilla JS
 - ✅ **Zero dependencies** - Pure TypeScript/JavaScript
 - ✅ **Crash-resistant** - Handles tab crashes and forced browser closes
@@ -24,10 +25,10 @@ Or copy the `src/SingleTabManager.ts` file directly into your project.
 ### Basic Usage
 
 ```typescript
-import { createSingleTabManager } from './SingleTabManager';
+import { SingleTabManager } from 'single-active-browser-tab';
 
-// Create manager with callbacks
-const manager = createSingleTabManager({
+// Service Worker strategy (default)
+const manager = new SingleTabManager('sw', {
   onActive: () => {
     console.log('✅ This tab is now active');
     // Start your business logic here
@@ -35,6 +36,16 @@ const manager = createSingleTabManager({
   onBlocked: () => {
     console.log('🚫 Another tab is active - this tab is blocked');
     // Show a message to the user or disable functionality
+  },
+});
+
+// Or use BroadcastChannel strategy
+const manager = new SingleTabManager('broadcast', {
+  onActive: () => {
+    console.log('✅ This tab is now active');
+  },
+  onBlocked: () => {
+    console.log('🚫 Another tab is active - this tab is blocked');
   },
 });
 
@@ -46,6 +57,11 @@ if (manager.isActive()) {
   // Execute privileged operations
 }
 
+// Check if this tab is blocked
+if (manager.isBlocked()) {
+  // This tab is not active
+}
+
 // Stop the manager (e.g., on page unload)
 // manager.stop();
 ```
@@ -54,13 +70,13 @@ if (manager.isActive()) {
 
 ```tsx
 import { useEffect, useState } from 'react';
-import { createSingleTabManager } from './SingleTabManager';
+import { SingleTabManager } from 'single-active-browser-tab';
 
 function App() {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    const manager = createSingleTabManager({
+    const manager = new SingleTabManager('sw', {
       onActive: () => setIsActive(true),
       onBlocked: () => setIsActive(false),
     });
@@ -93,13 +109,13 @@ function App() {
 ```vue
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { createSingleTabManager } from './SingleTabManager';
+import { SingleTabManager } from 'single-active-browser-tab';
 
 const isActive = ref(false);
-let manager: ReturnType<typeof createSingleTabManager>;
+let manager: SingleTabManager;
 
 onMounted(() => {
-  manager = createSingleTabManager({
+  manager = new SingleTabManager('sw', {
     onActive: () => (isActive.value = true),
     onBlocked: () => (isActive.value = false),
   });
@@ -133,11 +149,11 @@ onUnmounted(() => {
     <div id="status">Loading...</div>
 
     <script type="module">
-      import { createSingleTabManager } from './SingleTabManager.js';
+      import { SingleTabManager } from 'single-active-browser-tab';
 
       const statusEl = document.getElementById('status');
 
-      const manager = createSingleTabManager({
+      const manager = new SingleTabManager('sw', {
         onActive: () => {
           statusEl.textContent = '✅ This is the active tab';
           statusEl.style.color = 'green';
@@ -156,19 +172,28 @@ onUnmounted(() => {
 
 ## API Reference
 
-### `createSingleTabManager(options?)`
+### `new SingleTabManager(strategy?, options?)`
 
 Creates a new `SingleTabManager` instance.
 
+#### Parameters
+
+| Parameter  | Type                  | Default | Description           |
+| ---------- | --------------------- | ------- | --------------------- |
+| `strategy` | `'sw' \| 'broadcast'` | `'sw'`  | Coordination strategy |
+| `options`  | `object`              | -       | Configuration options |
+
 #### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `key` | `string` | `'single-active-tab'` | localStorage key for storing tab state |
-| `heartbeatInterval` | `number` | `2000` | Milliseconds between heartbeat updates |
-| `staleTimeout` | `number` | `5000` | Milliseconds before a tab is considered stale |
-| `onActive` | `() => void` | - | Callback when this tab becomes active |
-| `onBlocked` | `() => void` | - | Callback when this tab becomes blocked |
+| Option              | Type                         | Default                          | Description                                                  |
+| ------------------- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| `onActive`          | `() => void`                 | -                                | Callback when this tab becomes active                        |
+| `onBlocked`         | `() => void`                 | -                                | Callback when this tab becomes blocked                       |
+| `swPath`            | `string`                     | `'sw.js'`                        | Service worker path (sw strategy only)                       |
+| `heartbeatInterval` | `number`                     | `2000` (sw) / `5000` (broadcast) | Milliseconds between heartbeat updates                       |
+| `staleTimeout`      | `number`                     | `5000`                           | Milliseconds before tab is considered stale (broadcast only) |
+| `channelName`       | `string`                     | `'single-tab-manager-broadcast'` | BroadcastChannel name (broadcast only)                       |
+| `logLevel`          | `'error' \| 'warn' \| 'log'` | -                                | Logging level                                                |
 
 ### Manager Methods
 
@@ -204,7 +229,7 @@ Returns `true` if another tab is active and this tab is blocked.
 
 ```typescript
 if (manager.isBlocked()) {
-  // Another tab is active
+  // This tab is blocked
 }
 ```
 
@@ -217,34 +242,57 @@ Forcefully takes over control from another tab, even if it's still active.
 manager.takeover();
 ```
 
-#### `getTabId()`
-
-Returns the unique ID for this tab.
-
-```typescript
-const tabId = manager.getTabId();
-console.log(`Tab ID: ${tabId}`);
-```
-
 ## How It Works
+
+### Choose a Strategy
+
+The library provides two strategies for coordinating tab activity:
+
+| Strategy         | Use When                                                                | Pros                                         | Cons                                         |
+| ---------------- | ----------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| `'sw'` (default) | You need precise control, work with iframes, or want better reliability | Works in iframes, precise ownership tracking | Requires Service Worker file, needs HTTPS    |
+| `'broadcast'`    | Simplicity is prioritized, same-origin tabs only                        | No Service Worker needed, simpler setup      | Doesn't work cross-origin, uses localStorage |
+
+### Service Worker Strategy
+
+The default `'sw'` strategy uses a Service Worker to coordinate tabs:
+
+1. **Registration**: Each tab registers the service worker (`sw.js`).
+2. **Query**: Tab asks the worker "am I active?" via `postMessage`.
+3. **Heartbeat**: Active tab sends periodic pings to keep ownership.
+4. **Takeover**: The worker notifies all tabs when ownership changes.
+
+### BroadcastChannel Strategy
+
+The `'broadcast'` strategy uses `BroadcastChannel` + `localStorage`:
+
+1. **Tab ID**: Each tab generates a unique ID stored in sessionStorage.
+2. **State**: Active tab writes to localStorage with timestamp.
+3. **Broadcast**: Uses BroadcastChannel to notify other tabs of state changes.
+4. **Stale Detection**: If no heartbeat within `staleTimeout`, tab is considered dead.
 
 ### Heartbeat Mechanism
 
 1. **Tab Identification**: Each tab generates a unique ID (`timestamp-random`) on load.
 
-2. **State Storage**: Active tab stores its state in `localStorage`:
+2. **State Storage**: Active tab stores its state:
+   - SW strategy: uses Cache API
+   - Broadcast strategy: uses localStorage:
+
    ```json
    {
-     "id": "1700000000000-0.123456",
+     "ownerId": "1700000000000-0.123456",
      "lastSeen": 1700000000000
    }
    ```
 
-3. **Heartbeat**: Active tab updates `lastSeen` every `heartbeatInterval` (default: 2s).
+3. **Heartbeat**: Active tab updates `lastSeen` every `heartbeatInterval` (2s for SW, 5s for broadcast).
 
-4. **Stale Detection**: If `Date.now() - lastSeen > staleTimeout` (default: 5s), the tab is considered dead.
+4. **Stale Detection**: If no heartbeat within `staleTimeout` (broadcast only, default: 5s), the tab is considered dead.
 
-5. **Cross-Tab Communication**: Uses `storage` events to detect changes from other tabs.
+5. **Cross-Tab Communication**:
+   - SW strategy: Uses Service Worker `postMessage`
+   - Broadcast strategy: Uses `storage` events to detect changes
 
 ### State Flow
 
@@ -255,14 +303,14 @@ console.log(`Tab ID: ${tabId}`);
        │
        ▼
 ┌─────────────────┐
-│ Check localStorage │
+│ Check Strategy   │
 └──────┬──────────┘
        │
-       ├─── No state ─────► Become Active
+       ├─── No owner ─────► Become Active
        │
-       ├─── Stale state ──► Become Active
+       ├─── Stale owner ──► Become Active
        │
-       └─── Active state ─► Become Blocked
+       └─── Active owner ─► Become Blocked
 ```
 
 ## Use Cases
@@ -281,17 +329,11 @@ console.log(`Tab ID: ${tabId}`);
 # Run unit tests
 npm test
 
-# Run E2E tests with Cypress (headless)
-npm run cypress:run
+# Run E2E tests with Playwright (headless)
+npm run test:pw
 
-# Run E2E tests with Cypress (interactive UI)
-npm run cypress:open
-
-# Run E2E tests with dev server
-npm run e2e
-
-# Run E2E tests with dev server (interactive UI)
-npm run e2e:open
+# Run E2E tests with Playwright (interactive UI)
+npm run test:pw:ui
 
 # Run ESLint
 npm run lint
@@ -309,33 +351,34 @@ npm run format:check
 npm run typecheck
 ```
 
-### E2E Testing with Cypress
+### E2E Testing with Playwright
 
-The project uses Cypress for end-to-end testing of both strategies:
+The project uses Playwright for end-to-end testing of both strategies:
 
-- **Passive Strategy** (`cypress/e2e/passive-strategy.cy.ts`): Tests the default behavior where a new tab becomes blocked when another active tab exists.
+- **Service Worker Strategy**: Tests the default behavior where a new tab becomes blocked when another active tab exists.
 
-- **Takeover Strategy** (`cypress/e2e/takeover-strategy.cy.ts`): Tests the ability to forcefully take control using the `takeover()` method.
+- **Broadcast Strategy**: Tests the ability to forcefully take control using the `takeover()` method.
 
 To run tests:
 
 ```bash
-# Open Cypress UI (recommended for development)
-npm run cypress:open
+# Open Playwright UI (recommended for development)
+npm run test:pw:ui
 
 # Run all tests in headless mode
-npm run cypress:run
+npm run test:pw
 
 # Run with Chrome
-npm run cypress:run:chrome
+npm run test:pw:chrome
 
 # Run with Firefox
-npm run cypress:run:firefox
+npm run test:pw:firefox
 ```
 
 ## Browser Support
 
 Works in all modern browsers that support:
+
 - `localStorage`
 - `window.addEventListener`
 - ES6+

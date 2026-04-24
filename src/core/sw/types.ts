@@ -5,4 +5,5 @@ export interface IServiceWorkerStrategyOptions {
   swPath?: string;
   /** Heartbeat interval in ms (default: 2000) */
   heartbeatInterval?: number;
+  logLevel?: 'error' | 'warn' | 'log';
 }

@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-// import { SingleTabManager } from './core/single-tab-manager';
-
-import { SingleTabManager } from '../dist/single-tab-manager';
+import { SingleTabManager } from './core/single-tab-manager';
 
 function App() {
   const [isActive, setIsActive] = useState<boolean | null>(null);
   const managerRef = useRef<SingleTabManager | null>(null);
 
   useEffect(() => {
-    const manager = new SingleTabManager('broadcast', {
+    const manager = new SingleTabManager('sw', {
       onActive: () => {
         setIsActive(true);
       },

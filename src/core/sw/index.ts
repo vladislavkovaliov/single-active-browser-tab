@@ -33,9 +33,9 @@ export interface TabStrategy {
  */
 export class ServiceWorkerStrategy implements TabStrategy {
   private readonly options: Required<
-    Omit<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked'>
+    Omit<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked' | 'logLevel'>
   > &
-    Pick<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked'>;
+    Pick<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked' | 'logLevel'>;
 
   private readonly tabId: string;
 
@@ -54,6 +54,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
    *  - `heartbeatInterval`: Interval (ms) between heartbeat messages.
    *  - `onActive`: Callback invoked when this tab becomes active.
    *  - `onBlocked`: Callback invoked when this tab is blocked.
+   *  - `logLevel`: logLevel defines.
    */
   constructor(options: IServiceWorkerStrategyOptions = {}) {
     // Stable tabId within one browser tab (sessionStorage is per-tab).
@@ -82,6 +83,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
       heartbeatInterval: options.heartbeatInterval ?? DEFAULT_HEARTBEAT_INTERVAL,
       onActive: options.onActive,
       onBlocked: options.onBlocked,
+      logLevel: options.logLevel,
     };
   }
 
@@ -90,7 +92,8 @@ export class ServiceWorkerStrategy implements TabStrategy {
    * and begins heartbeats if this tab is reported as active.
    */
   start(): void {
-    getLoggerInstance().log('[SingleTab] ServiceWorkerStrategy.start()');
+    const logLevel = this.options.logLevel;
+    getLoggerInstance(logLevel).log('[SingleTab] ServiceWorkerStrategy.start()');
 
     if (this.isStarted) {
       return;
@@ -148,7 +151,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
    */
   private async registerAndStart(): Promise<void> {
     if ('serviceWorker' in navigator === false) {
-      getLoggerInstance().log('[SingleTab] No serviceWorker in navigator');
+      const logLevel = this.options.logLevel;
+
+      getLoggerInstance(logLevel).log('[SingleTab] No serviceWorker in navigator');
 
       if (this.options.onBlocked) {
         this.options.onBlocked();
@@ -158,13 +163,15 @@ export class ServiceWorkerStrategy implements TabStrategy {
     }
 
     try {
-      getLoggerInstance().log('[SingleTab] Registering SW:', this.options.swPath);
+      const logLevel = this.options.logLevel;
+
+      getLoggerInstance(logLevel).log('[SingleTab] Registering SW:', this.options.swPath);
 
       this.registration = await navigator.serviceWorker.register(this.options.swPath, {
         scope: '/',
       });
 
-      getLoggerInstance().log(
+      getLoggerInstance(logLevel).log(
         '[SingleTab] SW registered, state:',
         this.registration.active?.state,
         this.registration.installing?.state,
@@ -172,7 +179,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
       );
 
       if (this.registration.waiting) {
-        getLoggerInstance().log(`[SingleTab] SW waiting -> postMessage(${EVENTS.SKIP_WAITING})`);
+        getLoggerInstance(logLevel).log(
+          `[SingleTab] SW waiting -> postMessage(${EVENTS.SKIP_WAITING})`
+        );
 
         this.registration.waiting.postMessage({ type: EVENTS.SKIP_WAITING });
       }
@@ -180,11 +189,11 @@ export class ServiceWorkerStrategy implements TabStrategy {
       this.registration.addEventListener('updatefound', () => {
         const newWorker = this.registration?.installing;
 
-        getLoggerInstance().log('[SingleTab] updatefound, installing:', Boolean(newWorker));
+        getLoggerInstance(logLevel).log('[SingleTab] updatefound, installing:', Boolean(newWorker));
 
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
-            getLoggerInstance().log('[SingleTab] installing statechange:', newWorker.state);
+            getLoggerInstance(logLevel).log('[SingleTab] installing statechange:', newWorker.state);
 
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               newWorker.postMessage({ type: EVENTS.SKIP_WAITING });
@@ -193,18 +202,23 @@ export class ServiceWorkerStrategy implements TabStrategy {
         }
       });
 
-      getLoggerInstance().log('[SingleTab] Waiting for navigator.serviceWorker.ready...');
+      getLoggerInstance(logLevel).log('[SingleTab] Waiting for navigator.serviceWorker.ready...');
 
       await navigator.serviceWorker.ready;
 
-      getLoggerInstance().log('[SingleTab] ready. controller:', Boolean(navigator.serviceWorker.controller));
+      getLoggerInstance(logLevel).log(
+        '[SingleTab] ready. controller:',
+        Boolean(navigator.serviceWorker.controller)
+      );
 
       this.registration.update();
 
       this.addMessageListener();
 
       if (navigator.serviceWorker.controller) {
-        getLoggerInstance().log('[SingleTab] Controller exists -> requestAmIActive + maybe startHeartbeat');
+        getLoggerInstance(logLevel).log(
+          '[SingleTab] Controller exists -> requestAmIActive + maybe startHeartbeat'
+        );
 
         await this.requestAmIActive();
 
@@ -212,13 +226,15 @@ export class ServiceWorkerStrategy implements TabStrategy {
           this.startHeartbeat();
         }
       } else {
-        getLoggerInstance().log('[SingleTab] No controller -> waiting for controllerchange...');
+        getLoggerInstance(logLevel).log(
+          '[SingleTab] No controller -> waiting for controllerchange...'
+        );
 
         await new Promise<void>((resolve) => {
           navigator.serviceWorker.addEventListener(
             'controllerchange',
             () => {
-              getLoggerInstance().log('[SingleTab] controllerchange fired');
+              getLoggerInstance(logLevel).log('[SingleTab] controllerchange fired');
 
               resolve();
             },
@@ -226,7 +242,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
           );
         });
 
-        getLoggerInstance().log(
+        getLoggerInstance(logLevel).log(
           '[SingleTab] After controllerchange -> requestAmIActive + maybe startHeartbeat'
         );
 
@@ -236,9 +252,11 @@ export class ServiceWorkerStrategy implements TabStrategy {
           this.startHeartbeat();
         }
       }
-      getLoggerInstance().log('[SingleTab] registerAndStart done, active:', this.active);
+      getLoggerInstance(logLevel).log('[SingleTab] registerAndStart done, active:', this.active);
     } catch (err) {
-      getLoggerInstance().error('[SingleTab] registration failed', err);
+      const logLevel = this.options.logLevel;
+
+      getLoggerInstance(logLevel).error('[SingleTab] registration failed', err);
 
       this.options.onBlocked?.();
     }
@@ -255,9 +273,14 @@ export class ServiceWorkerStrategy implements TabStrategy {
 
       if (data?.type === EVENTS.AM_I_ACTIVE) {
         const wasActive = this.active;
+        const logLevel = this.options.logLevel;
+
         this.active = data.active === true;
 
-        getLoggerInstance().log(`[SingleTab] message from SW: ${EVENTS.AM_I_ACTIVE}, active=`, this.active);
+        getLoggerInstance(logLevel).log(
+          `[SingleTab] message from SW: ${EVENTS.AM_I_ACTIVE}, active=`,
+          this.active
+        );
 
         // Синхронизируем heartbeat с текущим статусом.
         if (!wasActive && this.active) {
@@ -276,7 +299,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
 
     navigator.serviceWorker.addEventListener('message', this.messageHandler);
 
-    getLoggerInstance().log('[SingleTab] Message listener added');
+    const logLevel = this.options.logLevel;
+
+    getLoggerInstance(logLevel).log('[SingleTab] Message listener added');
   }
 
   /**
@@ -298,10 +323,19 @@ export class ServiceWorkerStrategy implements TabStrategy {
     return new Promise((resolve) => {
       const controller = navigator.serviceWorker.controller;
 
-      getLoggerInstance().log('[SingleTab] requestAmIActive: controller=', !!controller, 'tabId=', this.tabId);
+      const logLevel = this.options.logLevel;
+
+      getLoggerInstance(logLevel).log(
+        '[SingleTab] requestAmIActive: controller=',
+        !!controller,
+        'tabId=',
+        this.tabId
+      );
 
       if (!controller) {
-        getLoggerInstance().warn('[SingleTab] requestAmIActive: no controller, cannot send message');
+        getLoggerInstance(logLevel).warn(
+          '[SingleTab] requestAmIActive: no controller, cannot send message'
+        );
 
         this.options.onBlocked?.();
 
@@ -316,9 +350,14 @@ export class ServiceWorkerStrategy implements TabStrategy {
         if (data?.type === EVENTS.AM_I_ACTIVE) {
           navigator.serviceWorker.removeEventListener('message', handler);
 
+          const logLevel = this.options.logLevel;
+
           this.active = data.active === true;
 
-          getLoggerInstance().log('[SingleTab] requestAmIActive response: active=', this.active);
+          getLoggerInstance(logLevel).log(
+            '[SingleTab] requestAmIActive response: active=',
+            this.active
+          );
 
           if (this.active) {
             this.options.onActive?.();
@@ -337,7 +376,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
         tabId: this.tabId,
       });
 
-      getLoggerInstance().log(`[SingleTab] requestAmIActive: postMessage(${EVENTS.AM_I_ACTIVE}) sent`);
+      getLoggerInstance(logLevel).log(
+        `[SingleTab] requestAmIActive: postMessage(${EVENTS.AM_I_ACTIVE}) sent`
+      );
     });
   }
 
@@ -348,7 +389,12 @@ export class ServiceWorkerStrategy implements TabStrategy {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
-    getLoggerInstance().log('[SingleTab] startHeartbeat, interval=', this.options.heartbeatInterval);
+    const logLevel = this.options.logLevel;
+
+    getLoggerInstance(logLevel).log(
+      '[SingleTab] startHeartbeat, interval=',
+      this.options.heartbeatInterval
+    );
 
     this.heartbeatTimer = setInterval(() => {
       navigator.serviceWorker.controller?.postMessage({
