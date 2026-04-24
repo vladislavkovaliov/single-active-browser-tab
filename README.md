@@ -303,7 +303,7 @@ The `'broadcast'` strategy uses `BroadcastChannel` + `localStorage`:
        │
        ▼
 ┌─────────────────┐
-│ Check Strategy   │
+│ Check Strategy  │
 └──────┬──────────┘
        │
        ├─── No owner ─────► Become Active
@@ -379,8 +379,6 @@ npm run test:pw:firefox
 
 Works in all modern browsers that support:
 
-- `localStorage`
-- `window.addEventListener`
 - ES6+
 
 ## License

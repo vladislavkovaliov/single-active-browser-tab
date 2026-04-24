@@ -262,7 +262,9 @@ export class BroadcastChannelStrategy implements TabStrategy {
     this.beforeUnloadHandler = () => {
       const logLevel = this.logLevel;
 
-      getLoggerInstance(logLevel).log('[SingleTab BC] beforeunload: keep state for potential reload');
+      getLoggerInstance(logLevel).log(
+        '[SingleTab BC] beforeunload: keep state for potential reload'
+      );
     };
 
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
