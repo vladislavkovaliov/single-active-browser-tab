@@ -32,6 +32,14 @@ export interface TabStrategy {
  * `postMessage`, and uses periodic heartbeats to keep the worker informed.
  */
 export class ServiceWorkerStrategy implements TabStrategy {
+  private static validateSwPath(path: string): string {
+    const normalized = path.replace(/^[./]+/, '/');
+    if (normalized.includes('..')) {
+      throw new Error('Invalid swPath: path traversal not allowed');
+    }
+    return normalized;
+  }
+
   private readonly options: Required<
     Omit<IServiceWorkerStrategyOptions, 'onActive' | 'onBlocked' | 'logLevel'>
   > &
@@ -79,7 +87,9 @@ export class ServiceWorkerStrategy implements TabStrategy {
     this.tabId = tabId;
 
     this.options = {
-      swPath: options.swPath ?? DEFAULT_SW_PATH,
+      swPath: ServiceWorkerStrategy.validateSwPath(
+        options.swPath ?? DEFAULT_SW_PATH
+      ),
       heartbeatInterval: options.heartbeatInterval ?? DEFAULT_HEARTBEAT_INTERVAL,
       onActive: options.onActive,
       onBlocked: options.onBlocked,
@@ -348,6 +358,7 @@ export class ServiceWorkerStrategy implements TabStrategy {
         const data = event.data as { type?: string; active?: boolean };
 
         if (data?.type === EVENTS.AM_I_ACTIVE) {
+          clearTimeout(timeoutId);
           navigator.serviceWorker.removeEventListener('message', handler);
 
           const logLevel = this.options.logLevel;
@@ -368,6 +379,14 @@ export class ServiceWorkerStrategy implements TabStrategy {
           resolve();
         }
       };
+
+      const timeoutId = setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('message', handler);
+        getLoggerInstance(logLevel).warn(
+          '[SingleTab] requestAmIActive: timeout, no response'
+        );
+        resolve();
+      }, 5000);
 
       navigator.serviceWorker.addEventListener('message', handler);
 

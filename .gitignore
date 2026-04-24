@@ -4,3 +4,4 @@ node_modules/
 test-result
 .idea
 dist
+coverage

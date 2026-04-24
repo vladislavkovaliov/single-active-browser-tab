@@ -20,8 +20,6 @@ export class SingleTabManager {
   constructor(strategy: StrategyType = 'sw', options?: SingleTabManagerOptions) {
     const opts: SingleTabManagerOptions = options ?? {};
 
-    console.log({options});
-
     this.strategies = {
       sw: new ServiceWorkerStrategy({
         onActive: opts.onActive,

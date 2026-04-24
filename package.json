@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "test": "LOG_LEVEL=error jest",
+    "test:coverage": "LOG_LEVEL=error jest --coverage",
     "dev": "VITE_LOG_LEVEL=error vite",
     "build": "rm -rf dist && tsup",
     "preview": "vite preview",
-    "cy:run": "cypress run --browser chrome",
     "test:e2e": "start-server-and-test dev http://localhost:5173 cy:run",
     "test:pw": "playwright test",
     "test:pw:ui": "playwright test --ui",
@@ -47,7 +47,15 @@
       "path": "./cz-adapter"
     }
   },
-  "keywords": [],
+  "keywords": [
+    "browser",
+    "tab",
+    "browser-tab",
+    "active-tab",
+    "focus",
+    "window",
+    "extension"
+  ],
   "author": "",
   "license": "ISC",
   "description": "",
