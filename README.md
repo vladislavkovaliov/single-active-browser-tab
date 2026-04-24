@@ -24,6 +24,9 @@ Or copy the `src/SingleTabManager.ts` file directly into your project.
 
 ### Basic Usage
 
+<details>
+<summary>Example</summary>
+
 ```typescript
 import { SingleTabManager } from 'single-active-browser-tab';
 
@@ -65,8 +68,12 @@ if (manager.isBlocked()) {
 // Stop the manager (e.g., on page unload)
 // manager.stop();
 ```
+</details>
 
 ### React Example
+
+<details>
+<summary>Example</summary>
 
 ```tsx
 import { useEffect, useState } from 'react';
@@ -103,8 +110,12 @@ function App() {
   );
 }
 ```
+</details>
 
 ### Vue Example
+
+<details>
+<summary>Example</summary>
 
 ```vue
 <script setup lang="ts">
@@ -136,8 +147,12 @@ onUnmounted(() => {
   </div>
 </template>
 ```
+</details>
 
 ### Vanilla JS Example
+
+<details>
+<summary>Example</summary>
 
 ```html
 <!DOCTYPE html>
@@ -169,6 +184,7 @@ onUnmounted(() => {
   </body>
 </html>
 ```
+</details>
 
 ## API Reference
 
@@ -325,6 +341,9 @@ The `'broadcast'` strategy uses `BroadcastChannel` + `localStorage`:
 
 ### Available Scripts
 
+<details>
+<summary>Scripts</summary>
+
 ```bash
 # Run unit tests
 npm test
@@ -350,6 +369,7 @@ npm run format:check
 # Type check
 npm run typecheck
 ```
+</details>
 
 ### E2E Testing with Playwright
 
@@ -360,6 +380,9 @@ The project uses Playwright for end-to-end testing of both strategies:
 - **Broadcast Strategy**: Tests the ability to forcefully take control using the `takeover()` method.
 
 To run tests:
+
+<details>
+<summary>Scripts</summary>
 
 ```bash
 # Open Playwright UI (recommended for development)
@@ -374,6 +397,7 @@ npm run test:pw:chrome
 # Run with Firefox
 npm run test:pw:firefox
 ```
+</details>
 
 ## Browser Support
 
