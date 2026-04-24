@@ -1,6 +1,6 @@
 {
   "name": "single-active-browser-tab",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "main": "index.js",
   "types": "./dist/single-tab-manager.d.ts",
   "type": "module",
