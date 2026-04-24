@@ -9,9 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -21,6 +18,8 @@ jobs:
     name: Unit
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v6
@@ -35,9 +34,10 @@ jobs:
 
   e2e:
     name: E2E
-    needs: unit
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v6
@@ -72,6 +72,8 @@ jobs:
     needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v6
